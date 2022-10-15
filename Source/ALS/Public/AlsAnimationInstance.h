@@ -106,6 +106,11 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State", Transient)
 	FAlsRagdollingAnimationState RagdollingState;
 
+protected:
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State", Transient)
+	FRotator Orientation;
+
 public:
 	UAlsAnimationInstance();
 

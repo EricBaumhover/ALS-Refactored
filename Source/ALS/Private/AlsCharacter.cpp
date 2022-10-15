@@ -323,6 +323,11 @@ void AAlsCharacter::ServerSetViewMode_Implementation(const FGameplayTag& NewMode
 	SetViewMode(NewModeTag);
 }
 
+FRotator AAlsCharacter::GetOrientation() const
+{
+	return FRotator::ZeroRotator;
+}
+
 void AAlsCharacter::OnMovementModeChanged(const EMovementMode PreviousMode, const uint8 PreviousCustomMode)
 {
 	// Use the character movement mode to set the locomotion mode to the right value. This allows you to have a
@@ -1036,7 +1041,7 @@ void AAlsCharacter::RefreshLocomotion(const float DeltaTime)
 
 	if (LocomotionState.bHasInput)
 	{
-		LocomotionState.InputYawAngle = UE_REAL_TO_FLOAT(UAlsMath::DirectionToAngleXY(InputDirection));
+		LocomotionState.InputYawAngle = UE_REAL_TO_FLOAT(UAlsMath::DirectionToAngleXY(GetOrientation().UnrotateVector(InputDirection)));
 	}
 
 	LocomotionState.Velocity = GetVelocity();
@@ -1051,7 +1056,7 @@ void AAlsCharacter::RefreshLocomotion(const float DeltaTime)
 
 	if (LocomotionState.bHasSpeed)
 	{
-		LocomotionState.VelocityYawAngle = UE_REAL_TO_FLOAT(UAlsMath::DirectionToAngleXY(LocomotionState.Velocity));
+		LocomotionState.VelocityYawAngle = UE_REAL_TO_FLOAT(UAlsMath::DirectionToAngleXY(GetOrientation().UnrotateVector(LocomotionState.Velocity)));
 	}
 
 	LocomotionState.Acceleration = (LocomotionState.Velocity - LocomotionState.PreviousVelocity) / DeltaTime;
@@ -1377,8 +1382,9 @@ void AAlsCharacter::RefreshRotationExtraSmooth(const float TargetYawAngle, const
 
 	LocomotionState.SmoothTargetYawAngle = UAlsMath::InterpolateAngleConstant(LocomotionState.SmoothTargetYawAngle, TargetYawAngle,
 	                                                                          DeltaTime, TargetYawAngleRotationSpeed);
-
+	
 	auto NewRotation{GetActorRotation()};
+	
 	NewRotation.Yaw = UAlsMath::ExponentialDecayAngle(UE_REAL_TO_FLOAT(FRotator::NormalizeAxis(NewRotation.Yaw)),
 	                                                  LocomotionState.SmoothTargetYawAngle, DeltaTime, RotationInterpolationSpeed);
 

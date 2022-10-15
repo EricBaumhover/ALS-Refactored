@@ -434,6 +434,8 @@ void UAlsAnimationInstance::RefreshLocomotionGameThread()
 
 	const auto& Locomotion{Character->GetLocomotionState()};
 
+	Orientation = Character->GetOrientation();
+
 	LocomotionState.bHasInput = Locomotion.bHasInput;
 	LocomotionState.InputYawAngle = Locomotion.InputYawAngle;
 

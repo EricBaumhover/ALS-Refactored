@@ -147,6 +147,9 @@ private:
 	// Locomotion Mode
 
 public:
+
+	virtual FRotator GetOrientation() const;
+	
 	virtual void OnMovementModeChanged(EMovementMode PreviousMode, uint8 PreviousCustomMode = 0) override;
 
 public:
