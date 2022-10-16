@@ -435,6 +435,7 @@ void UAlsAnimationInstance::RefreshLocomotionGameThread()
 	const auto& Locomotion{Character->GetLocomotionState()};
 
 	Orientation = Character->GetOrientation();
+	ActualRotation = Character->GetProperRotation();
 
 	LocomotionState.bHasInput = Locomotion.bHasInput;
 	LocomotionState.InputYawAngle = Locomotion.InputYawAngle;
@@ -528,13 +529,13 @@ void UAlsAnimationInstance::RefreshGrounded(const float DeltaTime)
 	if ((LocomotionState.Acceleration | LocomotionState.Velocity) >= 0.0f)
 	{
 		RelativeAccelerationAmount = UAlsMath::ClampMagnitude01(
-			FVector3f{LocomotionState.RotationQuaternion.UnrotateVector(LocomotionState.Acceleration)} /
+			FVector3f{ActualRotation.UnrotateVector(LocomotionState.Acceleration)} /
 			LocomotionState.MaxAcceleration);
 	}
 	else
 	{
 		RelativeAccelerationAmount = UAlsMath::ClampMagnitude01(
-			FVector3f{LocomotionState.RotationQuaternion.UnrotateVector(LocomotionState.Acceleration)} /
+			FVector3f{ActualRotation.UnrotateVector(LocomotionState.Acceleration)} /
 			LocomotionState.MaxBrakingDeceleration);
 	}
 
@@ -580,7 +581,7 @@ void UAlsAnimationInstance::RefreshVelocityBlend(const float DeltaTime)
 	// used in a blend multi node to produce better directional blending than a standard blend space.
 
 	const auto RelativeVelocityDirection{
-		FVector3f{LocomotionState.RotationQuaternion.UnrotateVector(LocomotionState.Velocity)}.GetSafeNormal()
+		FVector3f{ ActualRotation.UnrotateVector(LocomotionState.Velocity)}.GetSafeNormal()
 	};
 
 	const auto RelativeDirection{
@@ -774,7 +775,7 @@ void UAlsAnimationInstance::RefreshInAir(const float DeltaTime)
 
 	// A separate variable for vertical speed is used to determine at what speed the character landed on the ground.
 
-	InAirState.VerticalVelocity = UE_REAL_TO_FLOAT(LocomotionState.Velocity.Z);
+	InAirState.VerticalVelocity = UE_REAL_TO_FLOAT(LocomotionState.Velocity.ProjectOnTo(Orientation.Quaternion().GetAxisZ()).Length());
 
 	RefreshGroundPredictionAmount();
 
@@ -808,7 +809,11 @@ void UAlsAnimationInstance::RefreshGroundPredictionAmount()
 	static constexpr auto MaxVerticalVelocity{-200.0f};
 
 	auto VelocityDirection{LocomotionState.Velocity};
-	VelocityDirection.Z = FMath::Clamp(VelocityDirection.Z, MinVerticalVelocity, MaxVerticalVelocity);
+	FVector Up = Orientation.Quaternion().GetAxisZ();
+	FVector VelocityDirectionOriented = Orientation.UnrotateVector(VelocityDirection);
+	FVector HorizontalVelocityDirection = VelocityDirectionOriented;
+	HorizontalVelocityDirection.Z = 0;
+	VelocityDirection = Orientation.RotateVector(HorizontalVelocityDirection) + Up * FMath::Clamp(VelocityDirectionOriented.Z, MinVerticalVelocity, MaxVerticalVelocity);
 	VelocityDirection.Normalize();
 
 	static constexpr auto MinSweepDistance{150.0f};
@@ -827,7 +832,7 @@ void UAlsAnimationInstance::RefreshGroundPredictionAmount()
 	}
 
 	FHitResult Hit;
-	GetWorld()->SweepSingleByObjectType(Hit, SweepStartLocation, SweepStartLocation + SweepVector, FQuat::Identity, ObjectQueryParameters,
+	GetWorld()->SweepSingleByObjectType(Hit, SweepStartLocation, SweepStartLocation + SweepVector, Orientation.Quaternion(), ObjectQueryParameters,
 	                                    FCollisionShape::MakeCapsule(LocomotionState.CapsuleRadius, LocomotionState.CapsuleHalfHeight),
 	                                    {ANSI_TO_TCHAR(__FUNCTION__), false, Character});
 
@@ -838,7 +843,7 @@ void UAlsAnimationInstance::RefreshGroundPredictionAmount()
 	{
 		if (IsInGameThread())
 		{
-			UAlsUtility::DrawDebugSweepSingleCapsule(GetWorld(), Hit.TraceStart, Hit.TraceEnd, FRotator::ZeroRotator,
+			UAlsUtility::DrawDebugSweepSingleCapsule(GetWorld(), Hit.TraceStart, Hit.TraceEnd, Orientation,
 			                                         LocomotionState.CapsuleRadius, LocomotionState.CapsuleHalfHeight,
 			                                         bGroundValid, Hit, {0.25f, 0.0f, 1.0f}, {0.75f, 0.0f, 1.0f});
 		}
@@ -846,7 +851,7 @@ void UAlsAnimationInstance::RefreshGroundPredictionAmount()
 		{
 			DisplayDebugTracesQueue.Add([this, Hit, bGroundValid]
 				{
-					UAlsUtility::DrawDebugSweepSingleCapsule(GetWorld(), Hit.TraceStart, Hit.TraceEnd, FRotator::ZeroRotator,
+					UAlsUtility::DrawDebugSweepSingleCapsule(GetWorld(), Hit.TraceStart, Hit.TraceEnd, Orientation,
 					                                         LocomotionState.CapsuleRadius, LocomotionState.CapsuleHalfHeight,
 					                                         bGroundValid, Hit, {0.25f, 0.0f, 1.0f}, {0.75f, 0.0f, 1.0f});
 				}
@@ -869,7 +874,7 @@ void UAlsAnimationInstance::RefreshInAirLeanAmount(const float DeltaTime)
 	static constexpr auto ReferenceSpeed{350.0f};
 
 	const auto RelativeVelocity{
-		FVector3f{LocomotionState.RotationQuaternion.UnrotateVector(LocomotionState.Velocity)} /
+		FVector3f{ActualRotation.UnrotateVector(LocomotionState.Velocity)} /
 		ReferenceSpeed * Settings->InAir.LeanAmountCurve->GetFloatValue(InAirState.VerticalVelocity)
 	};
 
@@ -1154,16 +1159,19 @@ void UAlsAnimationInstance::RefreshFootOffset(FAlsFootState& FootState, const fl
 	// Trace downward from the foot location to find the geometry. If the surface is walkable, save the impact location and normal.
 
 	auto FootLocation{FinalLocation};
-	FootLocation.Z = GetProxyOnAnyThread<FAnimInstanceProxy>().GetComponentTransform().GetLocation().Z;
+	auto ComponentTransform = GetProxyOnAnyThread<FAnimInstanceProxy>().GetComponentTransform();
+	FootLocation = FVector::VectorPlaneProject(FootLocation - ComponentTransform.GetLocation(), Orientation.Quaternion().GetAxisZ()) + (FootLocation - ComponentTransform.GetLocation()).ProjectOnTo(Orientation.Quaternion().GetAxisZ());
 
 	FHitResult Hit;
 	GetWorld()->LineTraceSingleByChannel(Hit,
-	                                     FootLocation + FVector{0.0f, 0.0f, Settings->Feet.IkTraceDistanceUpward * LocomotionState.Scale},
-	                                     FootLocation - FVector{0.0f, 0.0f, Settings->Feet.IkTraceDistanceDownward * LocomotionState.Scale},
+	                                     ComponentTransform.GetLocation() + FootLocation + Settings->Feet.IkTraceDistanceUpward * LocomotionState.Scale * ComponentTransform.GetUnitAxis(EAxis::Z),
+	                                     ComponentTransform.GetLocation() + FootLocation - Settings->Feet.IkTraceDistanceDownward * LocomotionState.Scale * ComponentTransform.GetUnitAxis(EAxis::Z),
 	                                     UEngineTypes::ConvertToCollisionChannel(Settings->Feet.IkTraceChannel),
 	                                     {ANSI_TO_TCHAR(__FUNCTION__), true, Character});
 
-	const auto bGroundValid{Hit.IsValidBlockingHit() && Hit.ImpactNormal.Z >= LocomotionState.WalkableFloorZ};
+	const FVector ImpactNormal = Orientation.UnrotateVector(Hit.ImpactNormal);
+
+	const auto bGroundValid{Hit.IsValidBlockingHit() && ImpactNormal.Z >= LocomotionState.WalkableFloorZ};
 
 #if WITH_EDITORONLY_DATA && ENABLE_DRAW_DEBUG
 	if (bDisplayDebugTraces)
@@ -1192,15 +1200,15 @@ void UAlsAnimationInstance::RefreshFootOffset(FAlsFootState& FootState, const fl
 		// Find the difference in location between the impact location and the expected (flat) floor location. These
 		// values are offset by the impact normal multiplied by the foot height to get better behavior on angled surfaces.
 
-		FootState.OffsetTargetLocation = Hit.ImpactPoint - FootLocation + Hit.ImpactNormal * FootHeight;
-		FootState.OffsetTargetLocation.Z -= FootHeight;
+		FootState.OffsetTargetLocation = Hit.ImpactPoint - FootLocation - ComponentTransform.GetLocation() + Hit.ImpactNormal * FootHeight;
+		//FootState.OffsetTargetLocation -= FootHeight * Orientation.Quaternion().GetAxisZ(); // TODO ??? Should work but doesn't
 
 		// Calculate the rotation offset.
 
 		FootState.OffsetTargetRotation = FRotator{
-			-UAlsMath::DirectionToAngle({Hit.ImpactNormal.Z, Hit.ImpactNormal.X}),
+			-UAlsMath::DirectionToAngle({ImpactNormal.Z, ImpactNormal.X}),
 			0.0f,
-			UAlsMath::DirectionToAngle({Hit.ImpactNormal.Z, Hit.ImpactNormal.Y})
+			UAlsMath::DirectionToAngle({ImpactNormal.Z, ImpactNormal.Y})
 		}.Quaternion();
 	}
 

@@ -149,6 +149,7 @@ private:
 public:
 
 	virtual FRotator GetOrientation() const;
+	virtual FRotator GetProperRotation() const;
 	
 	virtual void OnMovementModeChanged(EMovementMode PreviousMode, uint8 PreviousCustomMode = 0) override;
 

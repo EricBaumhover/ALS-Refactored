@@ -111,6 +111,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State", Transient)
 	FRotator Orientation;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State", Transient)
+	FRotator ActualRotation;
+
 public:
 	UAlsAnimationInstance();
 

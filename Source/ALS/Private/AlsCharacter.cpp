@@ -328,6 +328,11 @@ FRotator AAlsCharacter::GetOrientation() const
 	return FRotator::ZeroRotator;
 }
 
+FRotator AAlsCharacter::GetProperRotation() const
+{
+	return GetActorRotation();
+}
+
 void AAlsCharacter::OnMovementModeChanged(const EMovementMode PreviousMode, const uint8 PreviousCustomMode)
 {
 	// Use the character movement mode to set the locomotion mode to the right value. This allows you to have a
@@ -1051,7 +1056,7 @@ void AAlsCharacter::RefreshLocomotion(const float DeltaTime)
 	// character is moving, update the last velocity rotation. This value is saved because it might
 	// be useful to know the last orientation of a movement even after the character has stopped.
 
-	LocomotionState.Speed = UE_REAL_TO_FLOAT(LocomotionState.Velocity.Size2D());
+	LocomotionState.Speed = UE_REAL_TO_FLOAT(GetOrientation().UnrotateVector(LocomotionState.Velocity).Size2D());
 	LocomotionState.bHasSpeed = LocomotionState.Speed >= 1.0f;
 
 	if (LocomotionState.bHasSpeed)

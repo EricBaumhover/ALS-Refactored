@@ -833,7 +833,7 @@ float UAlsCharacterMovementComponent::CalculateGaitAmount() const
 	// where 0 is stopped, 1 is walking, 2 is running, and 3 is sprinting. This allows us to vary
 	// movement speeds but still use the mapped range in calculations for consistent results.
 
-	const auto Speed{UE_REAL_TO_FLOAT(Velocity.Size2D())};
+	const auto Speed{UE_REAL_TO_FLOAT(Cast<AAlsCharacter>(CharacterOwner)->GetOrientation().UnrotateVector(Velocity).Size2D())};
 
 	if (Speed <= GaitSettings.WalkSpeed)
 	{
