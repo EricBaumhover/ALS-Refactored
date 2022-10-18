@@ -85,7 +85,7 @@ void UAlsAnimationInstance::NativeUpdateAnimation(const float DeltaTime)
 	bTeleported |= Character->IsSimulatedProxyTeleported();
 
 #if WITH_EDITORONLY_DATA && ENABLE_DRAW_DEBUG
-	bDisplayDebugTraces = true; // TODO UAlsUtility::ShouldDisplayDebug(Character, UAlsConstants::TracesDisplayName());
+	bDisplayDebugTraces = UAlsUtility::ShouldDisplayDebug(Character, UAlsConstants::TracesDisplayName());
 #endif
 
 	ViewMode = Character->GetViewMode();
