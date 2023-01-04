@@ -1,2 +1,2 @@
 [lfs]
-url = "http://localhost:9999/git-lfs/AlsRefactored.git"
+	url = http://localhost:9999/git-lfs/AlsRefactored.git
