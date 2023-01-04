@@ -627,8 +627,8 @@ void AAlsCharacter::StartRagdollingImplementation()
 
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
-	GetMesh()->SetCollisionObjectType(ECC_PhysicsBody);
-	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	//GetMesh()->SetCollisionObjectType(ECC_PhysicsBody);
+	//GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	GetMesh()->SetAllBodiesBelowSimulatePhysics(UAlsConstants::PelvisBone(), true, true);
 
 	// Limit ragdoll speed to a few frames, because for some unclear reason,
@@ -854,8 +854,8 @@ void AAlsCharacter::FinalizeRagdolling()
 	// Disable physics simulation of a mesh and enable capsule collision.
 
 	GetMesh()->SetAllBodiesSimulatePhysics(false);
-	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	GetMesh()->SetCollisionObjectType(ECC_Pawn);
+	//GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	//GetMesh()->SetCollisionObjectType(ECC_Pawn);
 
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 
